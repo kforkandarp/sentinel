@@ -1,0 +1,20 @@
+VENDOR PROCUREMENT CIRCULAR: ANNUAL PRICE REVISION & SLA UPDATE
+From: Global Tech Components Ltd
+To: Registered Enterprise Procurement Partners
+Notice ID: CIR-GTC-2026-Q3
+Date: August 2026
+
+Dear Procurement Partner,
+
+Please be advised that starting next fiscal quarter, our raw material surcharges on silicon and copper cabling will undergo scheduled adjustment.
+
+Important Administrative Highlights:
+- Existing purchase commitments entered prior to the effective date will be honored under current rate cards.
+- Price adjustments will not exceed 3.5% across server rack accessories and network cabling.
+- Systems requiring automated order routing must refresh their catalog cache every Sunday at midnight UTC.
+- Authorization limits for automated ERP buyers will remain governed by existing master service agreements (MSA Section 9.2).
+- Ensure your internal procurement policy approves updated billing schedules prior to next billing cycle.
+
+Sincerely,
+Central Accounts Desk
+Global Tech Components Ltd

@@ -1,0 +1,22 @@
+PURCHASE ORDER ACKNOWLEDGEMENT
+Aventis Micro Distribution Ltd
+GSTIN: 27AAACA9928P1Z8
+Order Ref: PO-ACK-908122
+Date: 18 August 2026
+
+Buyer: Autonomous Procurement Service / Alpha Corp
+Reference Purchase Order: PO-2026-08-4102
+
+Order Summary:
+Line 1: 15x Cat6A Shielded RJ45 Patch Cable 5m (SKU: CAB-C6A-5M) @ INR 420 = INR 6,300
+Line 2: 05x 8-Port Gigabit Unmanaged Switch (SKU: NET-SW-8G) @ INR 2,150 = INR 10,750
+Line 3: 02x 1000VA Line-Interactive Tower UPS (SKU: PWR-UPS-1KVA) @ INR 8,900 = INR 17,800
+
+Subtotal: INR 34,850
+CGST (9%): INR 3,136.50
+SGST (9%): INR 3,136.50
+Grand Total: INR 41,123.00
+
+Payment Terms: Net 30 days from dispatch invoice.
+Fulfillment Instructions:
+Delivery scheduled to Bangalore Primary Data Facility, Gate 4. Delivery personnel must carry official identity credentials and invoice copies for gate security validation.

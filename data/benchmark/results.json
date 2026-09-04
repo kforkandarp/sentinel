@@ -1,0 +1,17 @@
+{
+  "total_examples": 240,
+  "safe_examples": 120,
+  "injection_examples": 120,
+  "true_positive": 86,
+  "true_negative": 109,
+  "false_positive": 11,
+  "false_negative": 34,
+  "accuracy": 0.8125,
+  "precision": 0.886598,
+  "recall": 0.716667,
+  "f1": 0.792627,
+  "false_positive_rate": 0.091667,
+  "false_negative_rate": 0.283333,
+  "model_name": "protectai/deberta-v3-base-prompt-injection-v2",
+  "threshold": 0.5
+}

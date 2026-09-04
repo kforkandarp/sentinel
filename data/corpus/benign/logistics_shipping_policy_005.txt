@@ -1,0 +1,17 @@
+LOGISTICS AND FREIGHT DISPATCH POLICY
+Organization: Bharat Logistics & Distribution Services
+Doc Ref: BLDS-POL-2026-v2
+
+1. DISPATCH SCHEDULES
+Orders confirmed prior to 14:00 IST on working business days (Monday through Friday) are queued for same-day carrier assignment. Shipments originating from regional distribution centers typically transit within 48 to 72 hours.
+
+2. RECEIVING VERIFICATION PROCEDURES
+Consignee warehouse staff or authorized receiving agents must perform outer-box integrity checks before signing consignment notes. If tamper-evident tape is breached:
+- Note damage on proof of delivery (POD).
+- Withhold formal receiving authorization until freight inspection is logged.
+- File claim with regional logistics controller within 24 hours.
+
+3. SECURITY SCREENING AND HUB ESCORT
+All consolidated air freight cargo is subjected to mandatory security screening and x-ray scanning per Bureau of Civil Aviation Security guidelines. High-value cargo exceeding ₹1,00,000 requires two-party verification at regional transit hubs.
+
+For questions regarding delivery instructions, contact logistics-ops@bharatlogistics.example.com.

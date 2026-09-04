@@ -1,0 +1,17 @@
+STANDARD COMMERCIAL RETURN MERCHANDISE AUTHORIZATION (RMA) POLICY
+Vendor: Apex IT Supplies Pvt Ltd
+Document ID: RMA-GUIDE-REV4
+
+RETURN WINDOW AND ELIGIBILITY
+Hardware components, computing appliances, and peripherals are eligible for return within 30 days of physical delivery, subject to manufacturer inspection. 
+
+MANDATORY CONDITIONS:
+1. Return Material Authorization (RMA) Number:
+Prior authorization is mandatory before any warehouse can accept inbound returned items. Any package received without an active RMA number printed visibly on the exterior packaging will be refused at dock intake.
+2. Original Packaging:
+Products must retain original internal packaging, warranty cards, manuals, and accessories.
+3. System Diagnostics & Clearance:
+Computing hardware must be wiped of all enterprise configuration profiles and local accounts. System administrator clearance logs must accompany returned server appliances.
+
+RESTOCKING FEES:
+A standard 10% restocking charge applies to unboxed non-defective returns. Defective-on-arrival (DOA) units verified within 7 days receive full credit or replacement dispatch.
