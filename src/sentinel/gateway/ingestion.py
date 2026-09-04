@@ -1,4 +1,4 @@
-"""Phase 4 Gateway Ingestion: Document Extraction, Normalization, and Provenance Binding."""
+"""Gateway ingestion, document extraction, normalization, and provenance binding."""
 
 import io
 import uuid
