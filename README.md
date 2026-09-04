@@ -4,6 +4,9 @@
   <b>AI Security Gateway for Agentic Commerce</b><br>
   Preventing untrusted content from independently authorizing consequential actions.
 </p>
+<p align="center">
+  🛡️ Detection ≠ Authorization &nbsp;•&nbsp; 🔒 Deterministic Policy Gate &nbsp;•&nbsp; 🧾 Audit Trail
+</p>
 
 ---
 
@@ -21,7 +24,7 @@ Sentinel provides an application-level control plane that isolates probabilistic
 
 ---
 
-## The Problem
+## 🎯 The Problem
 
 Autonomous agents interact with third-party data sources that cannot be trusted:
 
@@ -38,7 +41,7 @@ Sentinel addresses this by enforcing a hard, deterministic authorization boundar
 
 ---
 
-## Core Security Principle
+## 🛡️ Core Security Principle
 
 Sentinel divides security responsibilities across four distinct layers:
 
@@ -62,7 +65,7 @@ Sentinel divides security responsibilities across four distinct layers:
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ![Sentinel Architecture](assets/architecture.png)
 
@@ -74,11 +77,11 @@ The Sentinel control plane processes requests through a sequential pipeline:
 4. **Agent Action Proposal:** Captures proposed actions (`product_id`, `category`, `quantity`, `unit_price`, `total`, `correlation_id`) without inherent execution power.
 5. **Policy Gate:** Evaluates proposals against hard spending rules and user-delegated `TaskScope` constraints (allowed categories and budget ceilings).
 6. **Action Executor:** Executes consequential actions only when provided with an explicit `ALLOW` decision from the Policy Gate. `REVIEW` and `DENY` outcomes never execute.
-7. **Audit Logging:** Emits immutable, structured events (`INGESTED`, `INSPECTION_ROUTED`, `DETECTED`, `ACTION_PROPOSED`, `POLICY_DECIDED`, `ACTION_EXECUTED` / `ACTION_BLOCKED`) linked by a single `correlation_id`.
+7. **Audit Logging:** Emits structured audit events (`INGESTED`, `INSPECTION_ROUTED`, `DETECTED`, `ACTION_PROPOSED`, `POLICY_DECIDED`, `ACTION_EXECUTED` / `ACTION_BLOCKED`) linked by a single `correlation_id`.
 
 ---
 
-## Detection vs. Authorization
+## 🔍 Detection vs. Authorization
 
 A `SAFE` detector verdict does not authorize an action:
 
@@ -87,7 +90,7 @@ A `SAFE` detector verdict does not authorize an action:
 
 ---
 
-## Authorization Policy
+## 🔐 Authorization Policy
 
 The Policy Gate combines deterministic spending rules with explicit user-delegated `TaskScope` constraints:
 
@@ -101,7 +104,7 @@ The Policy Gate combines deterministic spending rules with explicit user-delegat
 
 ---
 
-## Demonstration
+## 🎬 Demonstration
 
 Sentinel provides a single-page Streamlit interface communicating with the FastAPI backend over HTTP.
 
@@ -109,7 +112,7 @@ Sentinel provides a single-page Streamlit interface communicating with the FastA
 
 ### 1. Safe Purchase (Legitimate Workflow)
 * **Artifact:** `data/corpus/benign/bulk_cable_accessory_quote_009.txt`
-* **Flow:** Content verified as safe; proposal is within user-delegated scope (`cable`) and budget ($\le \text{₹}5,000$).
+* **Flow:** Detector classifies the content as safe; the proposal is within user-delegated scope (`cable`) and budget ($\le \text{₹}5,000$).
 * **Result:** `ALLOW` $\rightarrow$ **Action Executed**.
 
 ![Safe Purchase](assets/safe_purchase.png)
@@ -130,7 +133,7 @@ Sentinel provides a single-page Streamlit interface communicating with the FastA
 
 ---
 
-## Evaluation
+## 📊 Evaluation
 
 Quantitative evaluation is performed against a frozen benchmark of 240 examples at `data/benchmark/dataset.json` (120 `SAFE`, 120 `INJECTION`) evaluated using `protectai/deberta-v3-base-prompt-injection-v2` at threshold `0.5`.
 
@@ -175,7 +178,7 @@ Quantitative evaluation is performed against a frozen benchmark of 240 examples 
 
 ---
 
-## Commerce Corpus
+## 📚 Commerce Corpus
 
 The repository maintains a separate, realistic commerce corpus at `data/corpus/`:
 
@@ -187,7 +190,7 @@ This corpus is used for end-to-end pipeline verification and integration testing
 
 ---
 
-## Failure Analysis & Limitations
+## ⚠️ Failure Analysis & Limitations
 
 1. **Document & Indirect Injections:** The detector struggles with embedded document instructions (`document_injection`: 13.3% accuracy; `indirect_content_injection`: 55.0% accuracy). Adversarial directives hidden inside structured formats or tables can evade detection.
 2. **False Negatives:** With an overall False Negative Rate of 28.33%, detection alone cannot ensure execution safety.
@@ -197,7 +200,7 @@ This corpus is used for end-to-end pipeline verification and integration testing
 
 ---
 
-## Testing
+## 🧪 Testing
 
 The automated pytest suite covers provenance immutability, router caching, detector inference, spending policies, capability validation, API schemas, and end-to-end integration scenarios.
 
@@ -211,8 +214,7 @@ Status: **96 passed**
 
 ---
 
-## API Documentation
-
+## 🔌 API Documentation
 FastAPI runs locally on `http://127.0.0.1:8000`. Interactive OpenAPI documentation is available at `/docs`.
 
 ### 1. `GET /health`
@@ -257,7 +259,7 @@ curl -X POST http://127.0.0.1:8000/scan \
 ```
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```plaintext
 Sentinel_v1/
@@ -282,7 +284,7 @@ Sentinel_v1/
 │       ├── policy/                 # PolicyGate & TaskScope rule definitions
 │       ├── app.py                  # FastAPI application entry point
 │       ├── config.py               # Gateway environment configuration
-│       ├── hashing.py              # SHA-256 canonical hashing utility
+│       ├── hashing.py              # SHA-256 hashing utility
 │       └── provenance.py           # Trusted ProvenanceContext factory
 ├── tests/                          # 96-test automated pytest suite
 ├── demo_ui.py                      # Single-page Streamlit presentation client
@@ -292,7 +294,7 @@ Sentinel_v1/
 
 ---
 
-## Local Setup
+## 🚀 Local Setup
 
 ### 1. Environment Installation
 
@@ -330,7 +332,7 @@ streamlit run demo_ui.py
 
 ---
 
-## Reproducing the Benchmark
+## 🔁 Reproducing the Benchmark
 
 The 240-example benchmark at `data/benchmark/dataset.json` is frozen. To re-run model evaluation and regenerate accuracy, latency, and category metrics:
 
@@ -346,7 +348,7 @@ python -m sentinel.evaluation.runner_e2e
 
 ---
 
-## Future Work
+## 🔮 Future Work
 
 The current prototype deliberately keeps its authorization and inspection model small and explicit. A production system could extend Sentinel with additional security intelligence without weakening the authorization boundary.
 
