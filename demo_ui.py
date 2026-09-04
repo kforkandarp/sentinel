@@ -102,7 +102,7 @@ with col_left:
     uploaded_file = st.file_uploader(
         "Upload a document (TXT, Markdown, or PDF)",
         type=["txt", "md", "pdf"],
-        help="Sent to FastAPI for secure extraction via Phase 4 ingestion.",
+        help="Sent to FastAPI for secure document extraction.",
     )
 
     if uploaded_file is not None:
