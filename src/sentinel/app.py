@@ -111,7 +111,7 @@ def health_check() -> dict[str, str]:
 
 @app.post("/ingest-file", response_model=IngestFileResponse, summary="Ingest Document File")
 async def ingest_file_endpoint(file: UploadFile = File(...)) -> IngestFileResponse:
-    """Ingest a TXT, Markdown, or PDF document using existing Phase 4 ingestion.
+    """Ingest a TXT, Markdown, or PDF document using the gateway ingestion pipeline.
 
     The extracted content is strictly untrusted and conveys no execution authority.
     """
