@@ -1,4 +1,4 @@
-"""CLI runner for executing Phase 9 End-to-End Sentinel Scenarios."""
+"""CLI runner for executing Sentinel end-to-end scenarios."""
 
 from decimal import Decimal
 import json
@@ -21,7 +21,7 @@ def run_all_scenarios(corpus_dir: str = "data/corpus") -> None:
         sys.exit(1)
 
     print("==================================================================")
-    print("PHASE 9: SENTINEL END-TO-END EVALUATION")
+    print("SENTINEL END-TO-END EVALUATION")
     print("==================================================================")
     print("\n[Step 1] Scanning adversarial corpus to record real detector classifications...")
     detector = PromptInjectionDetector()
@@ -135,7 +135,7 @@ def run_all_scenarios(corpus_dir: str = "data/corpus") -> None:
     print(f"  Execution Result: {res_3.executed}")
     print(json.dumps(res_3.model_dump(), indent=2))
     print("\n==================================================================")
-    print("PHASE 9 END-TO-END SCENARIO EXECUTION COMPLETED")
+    print("END-TO-END SCENARIO EXECUTION COMPLETED")
     print("==================================================================")
 
 
