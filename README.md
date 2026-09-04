@@ -193,9 +193,13 @@ This corpus is used for end-to-end pipeline verification and integration testing
 ## ⚠️ Failure Analysis & Limitations
 
 1. **Document & Indirect Injections:** The detector struggles with embedded document instructions (`document_injection`: 13.3% accuracy; `indirect_content_injection`: 55.0% accuracy). Adversarial directives hidden inside structured formats or tables can evade detection.
+
 2. **False Negatives:** With an overall False Negative Rate of 28.33%, detection alone cannot ensure execution safety.
+
 3. **Scope-Compliant Injections:** If an attacker influences an agent to propose an action that falls completely within the user's pre-authorized category and budget ceiling, the Policy Gate will approve it. Sentinel restricts execution authority; it does not guarantee complete semantic understanding.
+
 4. **In-Process Capability Registry:** The current authorization mechanism uses an in-memory token registry to enforce execution boundaries. Production deployments require distributed capabilities with cryptographic signing and replay protection.
+
 5. **No Persistent Vendor Reputation:** Vendor risk tracking and historical reputation databases are not implemented.
 
 ---
@@ -353,6 +357,9 @@ python -m sentinel.evaluation.runner_e2e
 The current prototype deliberately keeps its authorization and inspection model small and explicit. A production system could extend Sentinel with additional security intelligence without weakening the authorization boundary.
 
 * **Security Telemetry & Vendor History:** Introduce a persistent database for security-relevant telemetry such as vendor history, artifact hashes, inspection outcomes, detection results, policy decisions, and correlated audit events. Over time, this history could support vendor risk profiling, anomaly detection, and more informed inspection decisions.
+
 * **Specialized Document Ingestion Detectors:** Incorporate domain-specific classifiers and document-aware analysis to improve detection of indirect injections embedded in structured tables, PDFs, and other document formats.
+
 * **Adaptive Inspection:** Use accumulated security telemetry and historical vendor behavior to determine when deeper inspection is warranted, while keeping the Policy Gate as the sole authorization authority.
+
 * **Additional Action-Intent Validation:** Validate whether the proposed action is semantically consistent with the user's original task, reducing the gap between "within authorized scope" and "actually intended by the user."
