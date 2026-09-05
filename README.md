@@ -11,6 +11,17 @@
 
 ---
 
+## 🚀 Live Demo & Key Documentation
+
+| Resource | Link |
+|---|---|
+| 🎥 **Check out my Loom explanation** | [Watch the Sentinel Demo](https://www.loom.com/share/a062bd90be1f4183af1ea6a1b1939f84) |
+| 🌐 **Live Deployment** | [Open Sentinel Live Demo](YOUR_DEPLOYMENT_URL) |
+| 📘 **Engineering Decisions** | [ENGINEERING_DECISIONS.md](ENGINEERING_DECISIONS.md) |
+
+---
+
+
 ## Why This Matters
 
 AI agents are moving beyond chat. They can browse websites, read documents, compare products, and increasingly take actions on a user's behalf — including spending money.
