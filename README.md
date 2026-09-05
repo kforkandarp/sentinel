@@ -15,7 +15,7 @@
 
 | Resource | Link |
 |---|---|
-| 🎥 **Check out my Loom explanation** | [Watch the Sentinel Demo](https://www.loom.com/share/a062bd90be1f4183af1ea6a1b1939f84) |
+| 🎥 **Check out my Loom explanation** | [Watch the Sentinel Demo](https://www.loom.com/share/8525a7bb9cfe432e9fe032e644eb7215) |
 | 🌐 **Live Deployment** | [Open Sentinel Live Demo](YOUR_DEPLOYMENT_URL) |
 | 📘 **Engineering Decisions** | [ENGINEERING_DECISIONS.md](ENGINEERING_DECISIONS.md) |
 
