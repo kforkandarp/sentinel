@@ -1,8 +1,8 @@
 # Engineering Decisions
 
-This document records the significant engineering decisions made while building Sentinel. It explains the reasoning behind the architecture, the alternatives that were not chosen, and the trade-offs that remain.
+This document records the significant engineering decisions made while building Sentinel. It explains the reasoning behind the architecture, the alternatives considered, and the trade-offs that remain.
 
-It intends to provide context beyond the source code and explain the engineering thought process.
+It provides context beyond the source code and explains the engineering reasoning behind the system.
 
 ---
 
@@ -23,34 +23,19 @@ Throughout the project, I deliberately prioritized:
 - **explicit action validation over direct agent execution**
 - **failure visibility over hiding model limitations**
 
-The result is a security gateway designed around a simple principle:
+The resulting architecture is built around one principle:
 
 > **Untrusted content may influence agent reasoning, but it cannot independently grant execution authority.**
-
-The engineering decisions that follow explain how that boundary is implemented and the trade-offs behind it.
 
 ---
 
 ## 1. Separate Detection from Authorization
 
-### Context
+Prompt-injection detection and authorization answer different security questions.
 
-Prompt-injection detection is inherently probabilistic. A classifier produces a prediction and confidence score; it cannot provide an absolute security guarantee.
+A detector is probabilistic. It produces a label and confidence score and can be wrong in either direction. Authorization, on the other hand, has explicit constraints such as spending limits, allowed categories, and delegated task scope.
 
-Authorization, however, is a security-sensitive control with explicit constraints such as spending limits, allowed categories, and delegated task scope.
-
-Treating these as the same decision would make the authorization boundary dependent on the correctness of a probabilistic model.
-
-### Decision
-
-Sentinel separates:
-
-- **probabilistic threat detection**
-- **deterministic authorization**
-
-The detector determines whether content exhibits characteristics associated with prompt injection.
-
-The PolicyGate independently determines whether a proposed action is authorized.
+Sentinel therefore does not allow the detector to become the authorization authority.
 
 ```text
 Untrusted Content
@@ -68,84 +53,17 @@ Deterministic PolicyGate
    Executor
 ```
 
-### Why
-
 The detector answers:
 
-> "Does this content look malicious?"
+> "Does this content show evidence of prompt injection?"
 
 The PolicyGate answers:
 
-> "Is this action authorized under the current security policy?"
+> "Does this proposed action satisfy the explicit authorization policy?"
 
-These are different questions and therefore should not share the same authority.
+These are related decisions, but they are not interchangeable.
 
-### Consequence
-
-A detector false negative does not automatically grant unrestricted execution authority.
-
-However, policy enforcement cannot eliminate every possible prompt-injection consequence. If an injection is missed and the resulting action remains within the authorized category and spending constraints, the action may still be allowed.
-
-This limitation is explicitly documented rather than hidden behind the detector's confidence score.
-
-## 2. Use Deterministic Policy Enforcement for Financial Authorization
-
-### Context
-
-Financial authorization has a bounded and explicitly defined decision space.
-
-Sentinel needs to enforce spending limits, category restrictions, task scope, and escalation rules consistently.
-
-### Decision
-
-The PolicyGate uses deterministic rules rather than asking an LLM to decide whether an action should be authorized.
-
-The current spending policy is:
-
-| Condition | Decision |
-|---|---|
-| Amount <= ₹5,000 | ALLOW, subject to authorization checks |
-| ₹5,000 < Amount <= ₹50,000 | REVIEW |
-| Amount > ₹50,000 | DENY |
-
-Additional deterministic checks include:
-
-- requested category must match the authorized category
-- optional maximum budget must not be exceeded
-- a detector injection flag prevents automatic ALLOW and routes the action to REVIEW
-- an ALLOW decision must contain a valid gate-issued authorization token
-
-### Why
-
-Deterministic rules provide:
-
-- predictable behavior
-- explicit security boundaries
-- reproducible decisions
-- straightforward testing
-- auditable authorization logic
-
-An LLM may be useful for interpreting ambiguous natural-language intent, but the final spending authorization should not depend on probabilistic model behavior.
-
-### Alternative Not Chosen
-
-Using an LLM as the final authorization authority was not chosen because the current authorization conditions are already expressible as explicit security rules.
-
-### Consequence
-
-The policy layer cannot independently understand arbitrary natural-language intent. Its strength is that once an action has been represented structurally, its authorization decision is deterministic and reproducible.
-
-## 3. Treat Probabilistic Detection as Security Evidence
-
-### Context
-
-Sentinel uses a pretrained prompt-injection classifier to identify potentially malicious content.
-
-The classifier produces a label and score rather than a proof of maliciousness or safety.
-
-### Decision
-
-Detector output is treated as security evidence, not as an authorization credential.
+A detector result is therefore treated as security evidence, not as an authorization credential.
 
 Conceptually:
 
@@ -169,35 +87,66 @@ Detector == SAFE
     Execute
 ```
 
-### Why
+A detector SAFE result means only that the model did not classify the content as an injection. It does not mean that the resulting action is authorized.
 
-The system explicitly distinguishes:
+The reverse is also important: when the detector identifies an injection, that result can influence policy. In the current implementation, a detected injection prevents an otherwise auto-approvable action from receiving ALLOW and routes it to REVIEW.
 
-> "The model estimates that this content is likely safe."
+This separation means that improving detector accuracy improves the inspection layer, but does not remove the need for deterministic authorization.
 
-from:
+### Known boundary
 
-> "This action satisfies the configured authorization policy."
+A detector false negative cannot be treated as equivalent to a secure result.
 
-The second statement controls execution.
+If an injection is missed and the resulting action nevertheless remains within the explicitly authorized category and spending constraints, the PolicyGate may still allow it.
 
-### Consequence
+This is a deliberate architectural limitation rather than something hidden behind the detector's confidence score.
 
-Improving detector accuracy improves the inspection layer, but does not remove the need for deterministic authorization.
+## 2. Use Deterministic Policy Enforcement for Financial Authorization
 
-## 4. Introduce an Inspection Router Before Model Inference
+Financial authorization has a bounded decision space. Sentinel needs to enforce spending limits, category restrictions, task scope, and escalation rules consistently.
 
-### Context
+The PolicyGate therefore uses deterministic rules rather than asking an LLM to decide whether an action should be authorized.
+
+The current spending policy is:
+
+| Condition | Decision |
+|---|---|
+| Amount <= ₹5,000 | ALLOW, subject to authorization checks |
+| ₹5,000 < Amount <= ₹50,000 | REVIEW |
+| Amount > ₹50,000 | DENY |
+
+Additional checks include:
+
+- requested category must match the authorized category
+- optional maximum budget must not be exceeded
+- a detector injection flag prevents automatic ALLOW and routes the action to REVIEW
+- an ALLOW decision must contain a valid gate-issued authorization token
+
+The policy layer is deliberately explicit because these conditions are already representable as deterministic security rules.
+
+This provides:
+
+- predictable behavior
+- explicit security boundaries
+- reproducible decisions
+- straightforward testing
+- auditable authorization logic
+
+An LLM could be useful for interpreting ambiguous natural-language intent, but the final spending authorization should not depend on probabilistic model behavior.
+
+### Why not use an LLM as the authorization authority?
+
+The current authorization conditions are already expressible as explicit rules. Using an LLM as the final authority would make a security-critical decision dependent on probabilistic model behavior without providing a corresponding benefit for the current policy space.
+
+The trade-off is that the policy layer does not independently understand arbitrary natural-language intent. Its strength is that once an action has been represented structurally, its authorization decision is deterministic and reproducible.
+
+## 3. Route Inspection Before Model Inference
 
 Not every request requires full ML-based inspection.
 
-Some requests can be rejected through deterministic checks, while previously inspected content may be eligible for cache reuse.
+Some requests can be rejected through deterministic checks, while previously inspected content may be eligible for cache reuse. Running the detector for every request would also make the model an unnecessary mandatory dependency.
 
-Running the detector for every request would also make the model an unnecessary mandatory dependency.
-
-### Decision
-
-All `/scan` requests pass through the InspectionRouter.
+All `/scan` requests therefore pass through the InspectionRouter.
 
 The router can produce:
 
@@ -205,7 +154,7 @@ The router can produce:
 - `CACHE_REUSE`
 - `DEEP_INSPECT`
 
-The decision is based on:
+Its decision is based on:
 
 - deterministic blocking conditions
 - content integrity
@@ -228,31 +177,21 @@ InspectionRouter
              Detector
 ```
 
-### Why
+This creates a deterministic control point before probabilistic inference.
 
-The router establishes a deterministic control point before probabilistic inference.
+The router can reject invalid inputs early, reuse trusted inspection observations where appropriate, and invoke the detector only when deeper inspection is required.
 
-It allows Sentinel to reject invalid inputs early, reuse trusted inspection observations where appropriate, and invoke the detector only when deeper inspection is required.
+The detector is therefore no longer responsible for every request path.
 
-### Consequence
+The router itself becomes part of the security boundary and must remain deterministic and auditable.
 
-The detector is no longer responsible for every request path.
+## 4. Establish Content Identity, Provenance, and Safe Inspection Reuse
 
-The router itself becomes part of the security boundary and must therefore remain deterministic and auditable.
+Inspection results are only meaningful if the system knows which content was actually inspected.
 
-## 5. Establish Content Identity and Provenance Before Reuse
+A cached detector result cannot safely be treated as globally reusable for arbitrary content. Two pieces of content may look similar while being different security inputs.
 
-### Context
-
-Inspection results are only meaningful if the system knows which content was inspected.
-
-A cached detector result cannot safely be treated as globally reusable for arbitrary content.
-
-### Decision
-
-Ingestion establishes canonical content, computes a SHA-256 content hash, and associates the content with provenance information.
-
-The resulting identity is used when reasoning about inspection reuse.
+Sentinel establishes a canonical representation of ingested content, computes a SHA-256 content hash, and associates the content with provenance information.
 
 ```text
 Source
@@ -268,39 +207,90 @@ Canonical Content
 Inspection
 ```
 
-### Why
-
 The content hash provides a deterministic identity for the content being inspected.
 
 Provenance provides the context in which that content was obtained.
 
 Together they allow Sentinel to distinguish previously inspected content from different content that merely looks similar.
 
-### Consequence
+### Inspection state is separate from authorization state
 
-Inspection reuse is scoped to content/provenance identity rather than treated as a global "this detector result is safe" cache.
+Sentinel caches detector observations, not PolicyGate decisions.
 
-## 6. Bind Authorization to the Exact Action Being Executed
+On a cache miss:
 
-### Context
+```text
+DEEP_INSPECT
+     |
+     v
+  Detector
+     |
+     v
+Cache detector observation
+```
 
-Authorization must apply to the exact action that reaches the Executor.
+On a cache hit:
 
-Checking the action only at the PolicyGate is insufficient if the action representation can subsequently be modified before execution.
+```text
+CACHE_REUSE
+     |
+     v
+Reuse detector observation
+     |
+     v
+Skip detector inference
+```
 
-### Decision
+The PolicyGate still evaluates the action for every request.
 
-ActionProposal generates a SHA-256 fingerprint over its security-relevant action fields.
+This distinction is important because the two pieces of state have different security semantics:
 
-The authorization decision is associated with that fingerprint.
+- a detector observation is associated with inspected content
+- an authorization decision is associated with a specific action and current authorization context
 
-The Executor verifies that the proposal presented for execution still corresponds to the proposal that was authorized.
+Caching the first can avoid repeated model inference.
 
-### Example
+Caching the second could allow an old authorization decision to bypass current policy evaluation.
 
-Suppose the configured authorization limit were higher than the current example.
+Therefore:
 
-An action is initially authorized as:
+> Inspection state may be reused when content identity and provenance permit it; authorization remains request-specific.
+
+## 5. Bind Authorization to the Exact Action Being Executed
+
+The agent's desired action should not directly become an executable operation.
+
+Sentinel represents intended actions through an explicit ActionProposal. This creates a structured boundary between agent intent and system permission.
+
+```text
+Agent Intent
+    |
+    v
+ActionProposal
+    |
+    +----> Validation
+    |
+    +----> Fingerprint
+    |
+    v
+PolicyGate
+    |
+    v
+Executor
+```
+
+ActionProposal validates action-level properties including:
+
+- currency
+- quantity
+- total amount
+- required action fields
+
+It also provides a SHA-256 fingerprint over the security-relevant action fields.
+
+The fingerprint binds authorization to the exact action representation that was evaluated.
+
+For example, suppose an action is authorized as:
 
 ```text
 Amount: ₹4,000
@@ -332,151 +322,23 @@ H1 != H2
 
 the Executor rejects the modified proposal.
 
-In this case, the fingerprint protects the integrity of the authorization-to-execution boundary.
+The important distinction is:
 
-### Why
-
-The PolicyGate answers:
-
-> "Was this exact action authorized?"
-
-The fingerprint allows the Executor to verify:
-
-> "Is this still the exact action that was authorized?"
-
-### Important Distinction
+- **PolicyGate:** "Is this action authorized?"
+- **Fingerprint:** "Is this still the exact action that was authorized?"
+- **Executor:** "Does the execution request match the authorization?"
 
 The fingerprint is not a replacement for spending-policy enforcement.
 
-If an action is already ₹40,000 and the configured policy does not permit it, the PolicyGate should reject or escalate it based on the policy.
+If an action is already ₹40,000 and the configured policy does not permit it, the PolicyGate must reject or escalate it according to the policy.
 
-The fingerprint protects against a different failure mode:
+The fingerprint protects against a different failure mode: an action being modified after authorization.
 
-an authorized action being changed after authorization.
+### Keep the Executor non-authoritative
 
-### Consequence
+The Executor does not independently decide whether an action should be allowed.
 
-Authorization is bound to the exact action representation through its SHA-256 fingerprint rather than merely to a mutable set of action fields.
-
-## 7. Keep Inspection State Separate from Authorization State
-
-### Context
-
-Repeatedly running the same detector over identical trusted content is unnecessary.
-
-However, caching an authorization decision would be dangerous because authorization depends on the current action and authorization context.
-
-Detection state and authorization state therefore have different security semantics.
-
-### Decision
-
-Sentinel caches detector observations, not PolicyGate decisions.
-
-On a cache miss:
-
-```text
-DEEP_INSPECT
-     |
-     v
-Detector
-     |
-     v
-Cache detector observation
-```
-
-On a cache hit:
-
-```text
-CACHE_REUSE
-     |
-     v
-Reuse detector observation
-     |
-     v
-Skip detector inference
-```
-
-The PolicyGate still evaluates the action for every request.
-
-### Why
-
-A detector observation is associated with inspected content.
-
-An authorization decision is associated with a specific action and current authorization context.
-
-Those lifecycles are different and should not share the same cache.
-
-### Consequence
-
-Cache reuse can avoid repeated model inference without allowing an old authorization decision to bypass current policy evaluation.
-
-Policy evaluation remains request-specific even when inspection inference is reused.
-
-## 8. Use ActionProposal as the Boundary Before Execution
-
-### Context
-
-The agent's desired action should not directly become an executable operation.
-
-The system needs an intermediate representation that can be validated, fingerprinted, and authorized before execution.
-
-### Decision
-
-Sentinel represents intended actions through ActionProposal.
-
-The proposal validates action-level properties including:
-
-- currency
-- quantity
-- total amount
-- required action fields
-
-It also provides the action fingerprint used by the authorization/execution boundary.
-
-```text
-Agent Intent
-    |
-    v
-ActionProposal
-    |
-    +----> Validation
-    |
-    +----> Fingerprint
-    |
-    v
-PolicyGate
-    |
-    v
-Executor
-```
-
-### Why
-
-This creates an explicit boundary between:
-
-what the agent proposes
-
-and:
-
-what the system permits to execute.
-
-It also gives the PolicyGate and Executor a structured representation rather than requiring them to interpret free-form model output.
-
-### Consequence
-
-The agent does not receive direct execution authority merely because it generated a valid-looking action.
-
-## 9. Keep the Executor Non-Authoritative
-
-### Context
-
-Multiple components making independent authorization decisions can create inconsistent security paths.
-
-### Decision
-
-The Executor does not independently decide whether an action is allowed.
-
-It verifies that the execution request corresponds to a valid ALLOW decision and validates:
+It verifies that the execution request corresponds to a valid ALLOW decision and checks:
 
 - correlation identity
 - decision state
@@ -499,71 +361,65 @@ PolicyGate
           Executor
 ```
 
-### Why
-
 The PolicyGate is the authorization authority.
 
-The Executor is responsible for enforcing the output of that authority.
+The Executor is responsible for enforcing the output of that authority and verifying that the action reaching execution still matches what was authorized.
 
-This produces a single explicit authorization path.
+This creates one explicit authorization path rather than multiple components independently deciding whether execution is permitted.
 
-### Consequence
-
-A caller cannot legitimately bypass the PolicyGate simply by invoking the execution layer with an otherwise valid-looking action.
-
-## 10. Treat TaskScope as Explicit Delegated Authorization Context
-
-### Context
+## 6. Represent Delegated Authorization Explicitly
 
 An action must be evaluated against what the user has actually authorized the agent to do.
 
-Sentinel models this authorization scope explicitly through TaskScope.
+Sentinel represents this authorization context through TaskScope.
 
-### Decision
-
-TaskScope represents the user-delegated authorization context used by the PolicyGate.
-
-The current implementation supplies this context through the prototype request boundary.
-
-The PolicyGate uses it to evaluate:
+TaskScope contains the information used by the PolicyGate to evaluate:
 
 - allowed category
 - maximum authorized budget
 - task scope requirements
 
-### Why
+This makes authorization explicit rather than requiring the policy layer to infer authority from the agent's natural-language reasoning.
 
-Authorization should be represented explicitly rather than inferred solely from the agent's natural-language reasoning.
+It also makes the policy decision inspectable and testable.
 
-This also makes the policy decision inspectable and testable.
+### Current implementation boundary
 
-### Current Boundary
+The current implementation supplies TaskScope through the prototype request boundary.
 
-The current TaskScope is not independently authenticated.
+It is not independently authenticated.
 
 It is an explicit authorization context consumed by the policy layer, but the surrounding identity and integrity mechanism required to establish that context securely is outside the current implementation.
 
-### Production Evolution
+The current authorization handoff also uses an in-process gate-issued token. The Executor verifies that the authorization information corresponds to the expected request and action fingerprint.
 
-A production deployment would derive this authorization context from an authenticated and integrity-protected identity/capability layer rather than trusting a request-supplied authorization object.
+This provides an explicit capability handoff between the PolicyGate and Executor within the current implementation.
 
-## 11. Fail Closed on Security-Critical Inspection Errors
+### Production evolution
 
-### Context
+A production deployment would derive the authorization context from an authenticated and integrity-protected identity/capability layer rather than trusting a request-supplied authorization object.
+
+The capability mechanism would also need stronger semantics, including mechanisms such as:
+
+- cryptographically signed capabilities
+- explicit capability scope
+- expiration
+- nonce or replay protection
+- distributed verification
+- authenticated principal identity
+- durable audit storage
+
+These are production evolution paths rather than capabilities claimed by the current implementation.
+
+## 7. Fail Closed on Security-Critical Inspection Errors
 
 A detector failure must not silently become equivalent to a SAFE classification.
 
-### Decision
-
-Prompt-injection detection fails closed when model inference encounters an error.
+Sentinel therefore fails closed when prompt-injection model inference encounters an error.
 
 The system does not convert an inspection failure into a successful safety result.
 
-### Why
-
 There is an important distinction between:
-
-Model result:
 
 ```text
 SAFE
@@ -571,23 +427,17 @@ SAFE
 
 and:
 
-Model result:
-
 ```text
 UNAVAILABLE
 ```
 
 Treating both as SAFE would convert an availability failure into a security failure.
 
-### Consequence
+The consequence is that inspection failures can reduce availability, but they do not silently weaken the security boundary.
 
-Inspection failures can reduce availability, but they do not silently weaken the security boundary.
+## 8. Use a Fixed Detector and Evaluate Its Limitations
 
-## 12. Use a Pretrained Detector Today, Preserve a Path to Domain Adaptation
-
-### Context
-
-Sentinel currently uses the locked:
+Sentinel currently uses the locked pretrained model:
 
 ```text
 protectai/deberta-v3-base-prompt-injection-v2
@@ -595,30 +445,60 @@ protectai/deberta-v3-base-prompt-injection-v2
 
 with a fixed threshold of 0.5.
 
-The detector is evaluated independently from the authorization policy.
+The detector is intentionally kept fixed rather than fine-tuned as part of the current implementation.
 
-### Decision
-
-The current detector remains a fixed external pretrained model rather than being fine-tuned as part of the current implementation.
-
-The model's output is treated as probabilistic evidence and evaluated using a frozen benchmark.
-
-### Why
-
-Keeping the detector fixed makes the evaluation reproducible and makes it possible to distinguish:
+This makes the evaluation reproducible and makes it possible to distinguish:
 
 - changes to the detection model
 - changes to the surrounding security architecture
 
-### Observed Limitation
+The detector's output remains probabilistic evidence rather than an authorization credential.
 
-The evaluation shows that the detector is not perfect, particularly for indirect and document-oriented injection patterns.
+### Evaluation
 
-Therefore, the architecture does not assume that detector accuracy is sufficient to establish authorization.
+Sentinel evaluates the detector using a frozen benchmark containing:
 
-### Future Model Improvement
+- 240 examples
+- 120 SAFE
+- 120 INJECTION
+- fixed detector configuration
+- fixed threshold
 
-A Sentinel-specific detector could be fine-tuned on a domain-specific dataset containing:
+The evaluation records:
+
+- accuracy
+- precision
+- recall
+- F1
+- false-positive rate
+- false-negative rate
+- latency distribution
+
+The benchmark produced:
+
+| Metric | Result |
+|---|---|
+| Accuracy | 81.25% |
+| Precision | 88.66% |
+| Recall | 71.67% |
+| F1 | 79.26% |
+| False-positive rate | 9.17% |
+| False-negative rate | 28.33% |
+| Minimum latency | 6.52 ms |
+| Mean latency | 285.67 ms |
+| Median latency | 289.25 ms |
+| P95 latency | 361.17 ms |
+| Maximum latency | 463.48 ms |
+
+The false-negative rate is particularly important architecturally.
+
+A missed injection demonstrates why detection cannot be the sole authorization mechanism.
+
+The benchmark also exposed weaker performance on indirect and document-oriented injection patterns. That limitation directly informs the surrounding architecture and future work.
+
+### Future detector improvement
+
+A Sentinel-specific detector could eventually be fine-tuned on a domain-specific dataset containing:
 
 - direct prompt injections
 - indirect prompt injections
@@ -629,7 +509,7 @@ A Sentinel-specific detector could be fine-tuned on a domain-specific dataset co
 - hard negatives
 - adversarially constructed examples
 
-A potential training/evaluation pipeline would be:
+A potential training and evaluation pipeline would be:
 
 ```text
 Domain Corpus
@@ -670,81 +550,11 @@ Fine-tuning could improve domain-specific recall and reduce false negatives, but
 
 Most importantly, a stronger detector would still remain a probabilistic inspection layer, not the authorization authority.
 
-## 13. Current Capability Mechanism and Production Evolution
+## 9. Known Security Limitation: Scope-Compliant Injections
 
-### Current Implementation
+Sentinel explicitly acknowledges a failure mode that deterministic authorization cannot solve by itself.
 
-The current authorization capability is represented through an in-process gate-issued token and validation path.
-
-The Executor verifies that the authorization information corresponds to the expected request and action fingerprint.
-
-This provides an explicit authorization handoff between the PolicyGate and Executor.
-
-### Production Evolution
-
-A production deployment would require stronger capability semantics, including mechanisms such as:
-
-- cryptographically signed capabilities
-- explicit capability scope
-- expiration
-- nonce or replay protection
-- distributed verification
-- durable audit storage
-- authenticated principal identity
-
-These are production evolution paths rather than capabilities claimed by the current implementation.
-
-## 14. Evaluate the Detector to Expose Architectural Weaknesses
-
-### Context
-
-Sentinel's detector evaluation uses a frozen benchmark containing both SAFE and INJECTION examples.
-
-The current benchmark contains:
-
-- 240 examples
-- 120 SAFE
-- 120 INJECTION
-- fixed detector configuration
-- fixed threshold
-
-### Decision
-
-The detector is evaluated independently rather than presenting the model as a binary security guarantee.
-
-The evaluation records:
-
-- accuracy
-- precision
-- recall
-- F1
-- false-positive rate
-- false-negative rate
-- latency distribution
-
-### Why
-
-Security evaluation is more useful when failures are visible.
-
-In particular, the false-negative rate is architecturally important because a missed injection demonstrates why detection cannot be the sole authorization mechanism.
-
-### Consequence
-
-Evaluation results influence architectural reasoning rather than being used only as a headline benchmark number.
-
-A model score is evidence about the detector.
-
-It is not evidence that the entire authorization system is secure.
-
-## 15. Known Security Limitation: Scope-Compliant Injections
-
-### Context
-
-Sentinel can detect many prompt-injection patterns, but detection remains probabilistic.
-
-### Decision
-
-The system explicitly acknowledges the following failure mode:
+Consider:
 
 ```text
 Injection
@@ -762,15 +572,19 @@ Action is still within authorized category/budget
 PolicyGate may allow
 ```
 
-### Why
-
-The deterministic PolicyGate can enforce the constraints it knows about.
+The PolicyGate can enforce the constraints it knows about.
 
 It cannot infer malicious intent that is invisible to the policy inputs.
 
-### Consequence
+For example, if an injection causes the agent to choose an action that is still within the user's explicitly authorized category and budget, and the detector fails to identify the injection, the deterministic policy may have no rule that distinguishes the resulting action from a legitimate one.
 
-This creates clear future engineering directions:
+This is why Sentinel's security boundary is not presented as "the detector catches every attack."
+
+The architecture instead limits what a missed injection can authorize by requiring the resulting action to satisfy explicit authorization constraints.
+
+### Future engineering directions
+
+The main directions exposed by this limitation are:
 
 - action-intent validation
 - stronger semantic policy checks
@@ -781,70 +595,22 @@ This creates clear future engineering directions:
 
 The current architecture therefore reduces the impact of prompt injection without claiming to make malicious intent impossible.
 
-## 16. Current Implementation vs. Production Evolution
+## 10. Engineering Principle
 
-The following distinction is intentional.
-
-### Current Sentinel implementation
-
-- deterministic InspectionRouter
-- probabilistic prompt-injection detector
-- provenance and content hashing
-- provenance-scoped inspection cache
-- structured ActionProposal
-- SHA-256 action fingerprint
-- deterministic PolicyGate
-- explicit TaskScope
-- gate-issued authorization token
-- execution-time authorization verification
-- in-memory audit logging
-- simulated execution
-- TXT / Markdown / PDF ingestion
-
-### Production evolution
-
-Areas that would require further engineering include:
-
-- authenticated authorization identity
-- cryptographically signed distributed capabilities
-- replay protection
-- durable audit storage
-- production payment-provider integration
-- persistent security telemetry
-- richer action-intent validation
-- stronger document and indirect-injection detectors
-- domain-specific detector fine-tuning
-- expanded secure web ingestion
-- distributed state and cache management
-
-These are not presented as current capabilities. They are the next engineering layers required to operate the architecture in a production environment.
-
-## 17. Engineering Principle
-
-The central architectural decision behind Sentinel is:
+The central architectural principle behind Sentinel is:
 
 > Probabilistic models identify risk; deterministic systems decide authority.
 
-The detector answers a risk question:
+The system separates three responsibilities:
 
-> "Does this content show evidence of prompt injection?"
+- **Detector:** identifies evidence of prompt injection.
+- **PolicyGate:** determines whether the proposed action satisfies explicit authorization policy.
+- **Executor:** verifies that the action reaching execution matches the authorization issued for it.
 
-The PolicyGate answers an authorization question:
+A detector result can influence the policy decision, but the detector itself never grants execution authority.
 
-> "Does this proposed action satisfy the explicit rules and delegated scope?"
-
-The Executor answers an execution-integrity question:
-
-> "Does this execution request exactly match the action that the trusted PolicyGate authorized?"
-
-These decisions are related, but they are not interchangeable.
-
-A detector result can influence the policy decision — for example, a detected injection can escalate an otherwise auto-approvable purchase to REVIEW — but the detector itself never grants execution authority.
-
-The PolicyGate remains the authorization boundary, and the Executor independently verifies that an action reaching execution matches the authorization issued for it.
-
-Keeping risk detection, authorization, and execution integrity as separate responsibilities is the foundation of Sentinel's security boundary.
+The PolicyGate remains the authorization boundary, while the Executor verifies the integrity of the authorization-to-execution handoff.
 
 The objective is not to make the model perfectly trustworthy.
 
-The objective is to design the surrounding system so that model uncertainty does not automatically become execution authority.
+The objective is to ensure that model uncertainty does not automatically become execution authority.
