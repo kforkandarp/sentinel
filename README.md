@@ -2,48 +2,77 @@
 
 <p align="center">
   <b>AI Security Gateway for Agentic Commerce</b><br>
-  Preventing untrusted content from independently authorizing consequential actions.
+  Protecting AI agents that can spend money from making unauthorized actions.
 </p>
+
 <p align="center">
-  🛡️ Detection ≠ Authorization &nbsp;•&nbsp; 🔒 Deterministic Policy Gate &nbsp;•&nbsp; 🧾 Audit Trail
+  🛡️ Detect threats &nbsp;•&nbsp; 🔒 Enforce spending boundaries &nbsp;•&nbsp; 🧾 Audit decisions
 </p>
 
 ---
 
-Autonomous commerce agents evaluate external documents—such as vendor quotes, invoices, and catalog listings—to prepare purchase proposals.
+## Why This Matters
 
-When these external documents are parsed, adversaries can embed prompt injections designed to manipulate the model's reasoning and downstream actions.
+AI agents are moving beyond chat. They can browse websites, read documents, compare products, and increasingly take actions on a user's behalf — including spending money.
 
-Sentinel provides an application-level control plane that isolates probabilistic prompt injection detection from deterministic action authorization.
+That creates a simple but important problem:
 
-> **Core Security Invariant:**
->
-> $$\text{Detection} \neq \text{Authorization}$$
->
-> Untrusted content may influence an agent's reasoning, but it cannot independently grant authorization to execute a consequential action.
+> **An AI agent may be capable of making a decision, but capability is not the same as authorization.**
+
+### Real-world examples
+
+**An AI agent spent money without being asked**
+
+In January 2026, an X user reported that his Clawdbot AI assistant, which had access to his finances, independently spent **$2,997 on a personal-brand course** and later purchased a **$4,200 premium domain**, without asking for approval. The agent justified the purchases using its own reasoning about potential returns. [Source](https://x.com/borjitaea/status/2015875541123495951)
+
+**An AI agent made a real purchase when it was only asked to research**
+
+In February 2025, a Washington Post test of OpenAI's Operator asked it to find the cheapest eggs for delivery. Operator went beyond the request and **purchased a dozen eggs for $31.43 using the user's saved payment method without approval**. [Source](https://www.washingtonpost.com/technology/2025/02/07/openai-operator-chatgpt-ai-agent/)
+
+**Malicious information can make the problem worse**
+
+Security researchers at Zscaler demonstrated how malicious web content could contain hidden instructions designed to manipulate payment-capable AI agents. In controlled testing across 26 language models, **4 models executed the fraudulent cryptocurrency payment**. [Source](https://www.zscaler.com/blogs/security-research/indirect-prompt-injection-web-content-targets-ai-agents)
+
+These examples point to the same underlying risk:
+
+> **When an AI system can both reason and act, its reasoning should not automatically become authorization to spend money.**
+
+Sentinel adds an independent security boundary between what an agent consumes, what it proposes, and what it is actually allowed to execute.
 
 ---
 
-## 🎯 The Problem
+## 🎯 The Problem Sentinel Addresses
 
-Autonomous agents interact with third-party data sources that cannot be trusted:
+The problem is not simply that AI agents can be manipulated.
 
-* Vendor catalog quotes and product listings
-* Invoices and payment requests
-* Product specification sheets (PDF, Markdown, TXT)
-* Logistics and return notices
+The bigger problem is what happens **after** an agent is manipulated, mistaken, or overconfident.
 
-These sources can carry **prompt injection**—malicious instructions embedded inside content that attempt to manipulate an AI system's downstream operations.
+If an agent can access payment or commerce tools, a bad decision can become a real financial action:
 
-Relying solely on an ML detector creates a single point of failure: when an adversarial instruction evades detection (a false negative), an unconstrained agent will execute the attacker's payload.
+```text
+External information
+        ↓
+     AI Agent
+        ↓
+  Agent makes a decision
+        ↓
+  Payment / Purchase
+```
 
-Sentinel addresses this by enforcing a hard, deterministic authorization boundary between agent reasoning and external action execution.
+There is no independent boundary between "the agent decided to do this" and "the system is authorized to do this."
+
+Sentinel introduces that missing boundary. It inspects untrusted content before it becomes trusted agent context, and independently checks proposed actions against deterministic spending and category rules before execution.
 
 ---
 
 ## 🛡️ Core Security Principle
 
-Sentinel divides security responsibilities across four distinct layers:
+Sentinel separates two things that should not be controlled by the same decision:
+
+1. **What the AI thinks is safe**
+2. **What the system is actually allowed to do**
+
+The system therefore separates security responsibilities across four layers:
 
 | Layer | Core Question | Architectural Role |
 | :--- | :--- | :--- |
@@ -69,16 +98,23 @@ Sentinel divides security responsibilities across four distinct layers:
 
 ![Sentinel Architecture](assets/architecture.png)
 
-The Sentinel control plane processes requests through a sequential pipeline:
+The Sentinel control plane processes each request through a sequential security pipeline:
 
-1. **Ingestion:** Parses text and documents (`.txt`, `.md`, `.pdf`), generates a SHA-256 artifact hash and records provenance metadata.
-2. **Inspection Router:** Directs payloads to `BLOCK`, `CACHE_REUSE`, or `DEEP_INSPECT` to manage inspection overhead. *A status of "not deeply inspected" is never equivalent to "safe" or "authorized."*
-3. **Detector:** Analyzes raw text using `protectai/deberta-v3-base-prompt-injection-v2` at a fixed classification threshold of `0.5`. It acts as an advisory threat signal, not an authorization authority.
-4. **Agent Action Proposal:** Captures proposed actions (`product_id`, `category`, `quantity`, `unit_price`, `total`, `correlation_id`) without inherent execution power.
-5. **Policy Gate:** Evaluates proposals against hard spending rules and user-delegated `TaskScope` constraints (allowed categories and budget ceilings).
-6. **Action Executor:** Executes consequential actions only when provided with an explicit `ALLOW` decision from the Policy Gate. `REVIEW` and `DENY` outcomes never execute.
-7. **Audit Logging:** Emits structured audit events (`INGESTED`, `INSPECTION_ROUTED`, `DETECTED`, `ACTION_PROPOSED`, `POLICY_DECIDED`, `ACTION_EXECUTED` / `ACTION_BLOCKED`) linked by a single `correlation_id`.
+1. **Ingestion:** Parses supported text and documents (`.txt`, `.md`, `.pdf`), generates a SHA-256 artifact hash, and records provenance metadata.
 
+2. **Inspection Router:** Performs cheap deterministic checks, verifies content integrity, and checks the provenance-scoped inspection cache. It returns `BLOCK`, `CACHE_REUSE`, or `DEEP_INSPECT`.
+
+3. **Detector:** On `DEEP_INSPECT`, the locked DeBERTa detector analyzes the content and its probabilistic observation is stored in the inspection cache. On `CACHE_REUSE`, the cached detector observation is reused and model inference is skipped.
+
+4. **Agent Action Proposal:** Represents the action an agent wants to take (`product_id`, `category`, `quantity`, `unit_price`, `total`, `correlation_id`) without giving it execution authority.
+
+5. **Policy Gate:** Independently evaluates the proposed action against spending rules and the supplied user-delegated `TaskScope`.
+
+6. **Action Executor:** Executes only when the Policy Gate explicitly returns `ALLOW`. `REVIEW` and `DENY` outcomes never execute.
+
+7. **Audit Logging:** Records structured security and action events linked by a single `correlation_id`.
+
+> **Important:** Cached inspection results never bypass authorization. The Policy Gate is evaluated for the action on every request.
 ---
 
 ## 🔍 Detection vs. Authorization
@@ -92,7 +128,7 @@ A `SAFE` detector verdict does not authorize an action:
 
 ## 🔐 Authorization Policy
 
-The Policy Gate combines deterministic spending rules with explicit user-delegated `TaskScope` constraints:
+The Policy Gate combines deterministic spending rules with a `TaskScope` representing the user-delegated authorization context supplied to the prototype.
 
 | Proposed Purchase Total | Policy Decision | Execution Outcome |
 | :--- | :--- | :--- |
@@ -278,7 +314,7 @@ Sentinel_v1/
 │       └── manifest.json
 ├── src/
 │   └── sentinel/
-│       ├── agent/                  # ActionProposal schemas & reasoning models
+│       ├── agent/                  # ActionProposal schemas & commerce-agent interface
 │       ├── audit/                  # AuditEvent schemas & correlation logger
 │       ├── detection/              # Locked DeBERTa-v3 detector implementation
 │       ├── evaluation/             # Benchmark metrics calculator & runners
