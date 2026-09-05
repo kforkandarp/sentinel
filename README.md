@@ -21,15 +21,15 @@ That creates a simple but important problem:
 
 ### Real-world examples
 
-**An AI agent spent money without being asked**
+1. **An AI agent spent money without being asked**
 
 In January 2026, an X user reported that his Clawdbot AI assistant, which had access to his finances, independently spent **$2,997 on a personal-brand course** and later purchased a **$4,200 premium domain**, without asking for approval. The agent justified the purchases using its own reasoning about potential returns. [Source](https://x.com/borjitaea/status/2015875541123495951)
 
-**An AI agent made a real purchase when it was only asked to research**
+2. **An AI agent made a real purchase when it was only asked to research**
 
 In February 2025, a Washington Post test of OpenAI's Operator asked it to find the cheapest eggs for delivery. Operator went beyond the request and **purchased a dozen eggs for $31.43 using the user's saved payment method without approval**. [Source](https://www.washingtonpost.com/technology/2025/02/07/openai-operator-chatgpt-ai-agent/)
 
-**Malicious information can make the problem worse**
+3. **Malicious information can make the problem worse**
 
 Security researchers at Zscaler demonstrated how malicious web content could contain hidden instructions designed to manipulate payment-capable AI agents. In controlled testing across 26 language models, **4 models executed the fraudulent cryptocurrency payment**. [Source](https://www.zscaler.com/blogs/security-research/indirect-prompt-injection-web-content-targets-ai-agents)
 
