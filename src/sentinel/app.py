@@ -9,7 +9,7 @@ from sentinel.agent.reasoning import ActionProposal, ActionType
 from sentinel.audit.events import AuditEvent, AuditEventType
 from sentinel.audit.logger import AuditLogger
 from sentinel.detection.detector import PromptInjectionDetector
-from sentinel.detection.models import DetectionResult
+from sentinel.detection.models import DetectionLabel, DetectionResult
 from sentinel.execution.executor import ActionExecutor, ExecutionBlockedError
 from sentinel.gateway.ingestion import IngestedArtifact, ingest_document, ingest_text_internal
 from sentinel.inspection.models import InspectionRoute
@@ -188,7 +188,41 @@ def scan_and_authorize(request: ScanRequest) -> ScanResponse:
         )
 
     # 3. Detection Layer (Locked DeBERTa-v3 model)
-    det_result: DetectionResult = detector.detect(artifact.content)
+    #
+    # CACHE_REUSE contains only a previously recorded detector observation.
+    # It never contains or implies an authorization decision.
+    if inspection_decision.route == InspectionRoute.CACHE_REUSE:
+        cached = inspection_decision.cached_result
+        if cached is None:
+            raise RuntimeError("CACHE_REUSE route missing cached inspection result")
+
+        try:
+            det_result = DetectionResult(
+                label=DetectionLabel(cached.inspection_metadata["detector_label"]),
+                score=float(cached.inspection_metadata["detector_score"]),
+                threshold=float(cached.inspection_metadata["detector_threshold"]),
+                model_name=cached.inspection_metadata["detector_model_name"],
+            )
+        except (KeyError, ValueError, TypeError) as exc:
+            raise RuntimeError(
+                f"Cached detector observation is invalid: {exc}"
+            ) from exc
+
+    else:
+        det_result = detector.detect(artifact.content)
+
+        # Cache ONLY the detector's probabilistic observation.
+        # Never cache policy decisions, authorization, or execution state.
+        router.cache.put(
+            artifact.provenance,
+            inspection_metadata={
+                "detector_label": det_result.label.value,
+                "detector_score": str(det_result.score),
+                "detector_threshold": str(det_result.threshold),
+                "detector_model_name": det_result.model_name,
+            },
+        )
+
     audit_logger.log(
         AuditEvent(
             correlation_id=correlation_id,
