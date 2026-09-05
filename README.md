@@ -31,8 +31,8 @@ In February 2025, a Washington Post test of OpenAI's Operator asked it to find t
 
 3. ⚠️ **Malicious information can make the problem worse**
 
-Security researchers at Zscaler demonstrated how malicious web content could contain hidden instructions designed to manipulate payment-capable AI agents. In controlled testing across 26 language models, **4 models executed the fraudulent cryptocurrency payment**. [Source](https://www.zscaler.com/blogs/security-research/indirect-prompt-injection-web-content-targets-ai-agents)
-[Source2](https://www.securityweek.com/prompt-injection-attacks-trick-ai-agents-into-making-crypto-payments/)
+Security researchers at Zscaler demonstrated how malicious web content could contain hidden instructions designed to manipulate payment-capable AI agents. In controlled testing across 26 language models, **4 models executed the fraudulent cryptocurrency payment**. [[Source1]](https://www.zscaler.com/blogs/security-research/indirect-prompt-injection-web-content-targets-ai-agents)
+[[Source2]](https://www.securityweek.com/prompt-injection-attacks-trick-ai-agents-into-making-crypto-payments/)
 
 These examples point to the same underlying risk:
 
